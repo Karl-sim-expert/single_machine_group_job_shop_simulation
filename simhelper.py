@@ -26,9 +26,11 @@ def component_process(env, component, machine_obj, monitor_queue,monitor_tat,  m
         print(f"{env.now}: {component.name} of {component.job.name} starting on {machine.name}")
         yield env.timeout(process_time)
         monitor_queue.record(machine.resource, machine_name, component, "machine_out") #data acquisition via monitor
-        
         monitor_tat.record(component, machine_name)
+        component.job.components.remove(component)#remove the component from job class
         machine.resource.release(request) #release after timeout
+
+
         print(f"{env.now}: {component.name} of {component.job.name} finished on {machine.name}")
             
 
