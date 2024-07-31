@@ -12,7 +12,7 @@ def non_num_remover(tokens):
     return numbers
 
 #function that performs the processing of component
-def component_process(env, component, machine_obj, monitor, machine_index):
+def component_process(env, component, machine_obj, monitor_queue,monitor_tat,  machine_index):
     machine_name  = machine_obj.name
     process_time = component.machine_times[machine_index]
     
@@ -21,20 +21,23 @@ def component_process(env, component, machine_obj, monitor, machine_index):
 
     with machine.resource.request() as request:
         yield request
-        monitor.record(machine.resource, machine_name, "machine_in") #data acquisition via monitor
+        monitor_queue.record(machine.resource, machine_name, component, "machine_in") #data acquisition via monitor
+
         print(f"{env.now}: {component.name} of {component.job.name} starting on {machine.name}")
         yield env.timeout(process_time)
-        monitor.record(machine.resource, machine_name, "machine_out") #data acquisition via monitor
+        monitor_queue.record(machine.resource, machine_name, component, "machine_out") #data acquisition via monitor
+        
+        monitor_tat.record(component, machine_name)
         machine.resource.release(request) #release after timeout
         print(f"{env.now}: {component.name} of {component.job.name} finished on {machine.name}")
             
 
 
 #function that dynamically generates components + loads to queue
-def dynamic_component_creator(env, job, component_queue, job_machine_times, min_time, max_time):
+def dynamic_component_creator(env, job, component_queue, job_machine_times, min_time, max_time, duration):
     while True:
         yield env.timeout(random.randint(min_time, max_time))  # Generate component bteween 5 ~ 15 seconds
-        new_component = sc.Component(f"DynamicComponent_{env.now}", job, job_machine_times[job.name])
+        new_component = sc.Component(f"{job.name}_{env.now}", job, job_machine_times[job.name], env.now, duration)
         job.add_component(new_component)
         component_queue.put(new_component)
         print(f"{env.now}: New component {new_component.name} added for {job.name}")
@@ -55,6 +58,13 @@ def list_to_queue(lst):
     for item in lst:
         q.put(item)
     return q
+
+#function that transform from queue to list
+def queue_to_list(q):
+    lst = []
+    while not q.empty():
+        lst.append(q.get())
+    return lst
 
 #function that specifies an equipment on each component 
 # def allocator (store, machine_objs, a_now):
